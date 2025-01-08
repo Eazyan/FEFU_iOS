@@ -1,5 +1,3 @@
-// TrainingViewController.swift
-
 import UIKit
 import MapKit
 import CoreLocation
@@ -8,7 +6,7 @@ protocol TrainingViewControllerDelegate: AnyObject {
     func didFinishTraining(activity: Activity)
 }
 
-class TrainingViewController: UIViewController {
+class TrainingViewController: UIViewController, MKMapViewDelegate {
     
     // MARK: - Outlets
     @IBOutlet weak var mapView: MKMapView!
@@ -36,7 +34,7 @@ class TrainingViewController: UIViewController {
     private var routeCoordinates: [CLLocationCoordinate2D] = []
     private var polyline: MKPolyline?
     
-    private var selectedTrainingType: String = "Велосипед" // По умолчанию
+    private var selectedTrainingType: TrainingType = .велосипед // По умолчанию
     private var pausedTime: TimeInterval = 0
     
     override func viewDidLoad() {
@@ -61,7 +59,7 @@ class TrainingViewController: UIViewController {
         pauseButton.isHidden = true
         finishButton.isHidden = true
         
-        typeLabel.text = selectedTrainingType
+        typeLabel.text = selectedTrainingType.description
         distanceLabel.text = "0.0 км"
         timeLabel.text = "00:00:00"
         
@@ -69,7 +67,7 @@ class TrainingViewController: UIViewController {
         pauseButton.layer.cornerRadius = pauseButton.frame.height / 2
         finishButton.layer.cornerRadius = finishButton.frame.height / 2
         
-        // Настройка начального цвета паузы и иконки
+        // Настройка начального цвета паузы
         pauseButton.backgroundColor = .systemGray5
         pauseButton.setImage(UIImage(systemName: "pause.circle"), for: .normal)
     }
@@ -78,8 +76,25 @@ class TrainingViewController: UIViewController {
         for subview in trainingTypeSelectionView.subviews {
             if let button = subview as? UIButton {
                 button.layer.borderWidth = 2
-                button.layer.borderColor = (button.title(for: .normal) == selectedTrainingType) ? UIColor.systemBlue.cgColor : UIColor.clear.cgColor
+                button.layer.cornerRadius = 10
+                button.layer.borderColor = UIColor.clear.cgColor
                 button.addTarget(self, action: #selector(trainingTypeButtonTapped(_:)), for: .touchUpInside)
+            }
+        }
+        highlightSelectedButton() // Выделяем текущий выбранный тип
+    }
+    
+    @objc private func trainingTypeButtonTapped(_ sender: UIButton) {
+        guard let type = TrainingType(rawValue: sender.tag) else { return }
+        selectedTrainingType = type
+        typeLabel.text = selectedTrainingType.description
+        highlightSelectedButton() // Обновляем выделение
+    }
+    
+    private func highlightSelectedButton() {
+        for subview in trainingTypeSelectionView.subviews {
+            if let button = subview as? UIButton {
+                button.layer.borderColor = (button.tag == selectedTrainingType.rawValue) ? UIColor.systemGreen.cgColor : UIColor.clear.cgColor
             }
         }
     }
@@ -104,7 +119,6 @@ class TrainingViewController: UIViewController {
         case .notDetermined:
             locationManager.requestWhenInUseAuthorization()
         case .denied, .restricted:
-            // Показать предупреждение пользователю
             let alert = UIAlertController(title: "Доступ к геолокации запрещен", message: "Пожалуйста, разрешите доступ к геолокации в настройках устройства.", preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "ОК", style: .default, handler: nil))
             present(alert, animated: true, completion: nil)
@@ -127,24 +141,9 @@ class TrainingViewController: UIViewController {
         finishTraining()
     }
     
-    @objc private func trainingTypeButtonTapped(_ sender: UIButton) {
-        guard let type = sender.title(for: .normal) else { return }
-        print("Selected training type: \(type)") // Отладочный вывод
-        selectedTrainingType = type
-        typeLabel.text = selectedTrainingType
-        
-        // Обновление окантовки кнопок
-        for subview in trainingTypeSelectionView.subviews {
-            if let button = subview as? UIButton {
-                button.layer.borderColor = (button.title(for: .normal) == selectedTrainingType) ? UIColor.systemBlue.cgColor : UIColor.clear.cgColor
-            }
-        }
-    }
-    
     // MARK: - Tracking Methods
     
     private func startTracking() {
-        print("Start Tracking") // Отладочный вывод
         isTracking = true
         isPaused = false
         startTime = Date()
@@ -155,17 +154,13 @@ class TrainingViewController: UIViewController {
         pauseButton.isHidden = false
         finishButton.isHidden = false
         
-        // Скрытие выбора типа тренировки с анимацией
         UIView.animate(withDuration: 0.3, animations: {
             self.trainingTypeView.alpha = 0
         }) { _ in
             self.trainingTypeView.isHidden = true
         }
         
-        // Удаление предыдущего маршрута, если есть
-        if let polyline = polyline {
-            mapView.removeOverlay(polyline)
-        }
+        // Сброс данных
         routeCoordinates.removeAll()
         distance = 0.0
         distanceLabel.text = "0.0 км"
@@ -177,61 +172,39 @@ class TrainingViewController: UIViewController {
     
     private func togglePause() {
         if isPaused {
-            // Возобновление
             isPaused = false
             locationManager.startUpdatingLocation()
             startTime = Date().addingTimeInterval(-pausedTime)
             timer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(updateElapsedTime), userInfo: nil, repeats: true)
             pauseButton.backgroundColor = .systemGray5
             pauseButton.setImage(UIImage(systemName: "pause.circle"), for: .normal)
-            print("Resumed tracking") // Отладочный вывод
         } else {
-            // Пауза
             isPaused = true
             locationManager.stopUpdatingLocation()
             timer?.invalidate()
             pausedTime = elapsedTime
             pauseButton.backgroundColor = .systemYellow
             pauseButton.setImage(UIImage(systemName: "play.circle"), for: .normal)
-            print("Paused tracking") // Отладочный вывод
         }
     }
     
     private func finishTraining() {
-        print("Finish Training") // Отладочный вывод
         isTracking = false
         isPaused = false
         locationManager.stopUpdatingLocation()
         timer?.invalidate()
         
-        // Создание активности
         let activity = Activity(
             distance: String(format: "%.1f км", distance),
             time: formatTime(timeInterval: elapsedTime),
-            type: selectedTrainingType,
+            type: selectedTrainingType.description,
             timestamp: formattedDate(Date()),
-            iconName: (selectedTrainingType == "Велосипед") ? "bicycle.circle.fill" : "figure.walk.circle",
+            iconName: (selectedTrainingType == .велосипед) ? "bicycle.circle.fill" : "figure.walk.circle",
             date: Date()
         )
         
-        // Передача активности обратно через делегат
         delegate?.didFinishTraining(activity: activity)
-        
-        // Переход обратно
         navigationController?.popViewController(animated: true)
-        
-        // Сброс выбора типа тренировки для следующей сессии
-        selectedTrainingType = "Велосипед"
-        typeLabel.text = selectedTrainingType
-        trainingTypeSelectionView.isHidden = false
-        trainingTypeSelectionView.alpha = 1.0 // Восстановление видимости
-        
-        // Обновление окантовки кнопок
-        for subview in trainingTypeSelectionView.subviews {
-            if let button = subview as? UIButton {
-                button.layer.borderColor = (button.title(for: .normal) == selectedTrainingType) ? UIColor.systemBlue.cgColor : UIColor.clear.cgColor
-            }
-        }
     }
     
     @objc private func updateElapsedTime() {
@@ -239,8 +212,6 @@ class TrainingViewController: UIViewController {
         elapsedTime = Date().timeIntervalSince(startTime)
         timeLabel.text = formatTime(timeInterval: elapsedTime)
     }
-    
-    // MARK: - Helper Methods
     
     private func formatTime(timeInterval: TimeInterval) -> String {
         let ti = Int(timeInterval)
@@ -262,74 +233,27 @@ class TrainingViewController: UIViewController {
 // MARK: - CLLocationManagerDelegate
 
 extension TrainingViewController: CLLocationManagerDelegate {
-    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        print("Authorization status changed to: \(status.rawValue)") // Отладочный вывод
-        switch status {
-        case .authorizedWhenInUse, .authorizedAlways:
-            mapView.showsUserLocation = true
-            locationManager.startUpdatingLocation()
-        case .denied, .restricted:
-            // Обработка отказа в доступе
-            let alert = UIAlertController(title: "Доступ к геолокации запрещен", message: "Пожалуйста, разрешите доступ к геолокации в настройках устройства.", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "ОК", style: .default, handler: nil))
-            present(alert, animated: true, completion: nil)
-        case .notDetermined:
-            locationManager.requestWhenInUseAuthorization()
-        @unknown default:
-            break
-        }
-    }
-    
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        print("Did update locations: \(locations)") // Отладочный вывод
         guard isTracking, !isPaused, let location = locations.last else { return }
         
-        // Обновление карты на текущее местоположение
-        let region = MKCoordinateRegion(center: location.coordinate, latitudinalMeters: 500, longitudinalMeters: 500)
-        mapView.setRegion(region, animated: true)
-        
-        // Добавление координаты маршрута
-        routeCoordinates.append(location.coordinate)
-        
-        // Вычисление расстояния
         if let previousLocation = previousLocation {
-            let delta = location.distance(from: previousLocation) / 1000.0 // в км
+            let delta = location.distance(from: previousLocation) / 1000.0
             distance += delta
             distanceLabel.text = String(format: "%.1f км", distance)
         }
         previousLocation = location
-        
-        // Рисование маршрута
-        if routeCoordinates.count > 1 {
-            if let polyline = polyline {
-                mapView.removeOverlay(polyline)
-            }
-            polyline = MKPolyline(coordinates: routeCoordinates, count: routeCoordinates.count)
-            mapView.addOverlay(polyline!)
-        }
-    }
-    
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Ошибка при обновлении местоположения: \(error.localizedDescription)")
-        // Показать пользователю уведомление об ошибке
-        let alert = UIAlertController(title: "Ошибка GPS", message: "Не удалось определить ваше местоположение. Пожалуйста, проверьте настройки устройства.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "ОК", style: .default, handler: nil))
-        present(alert, animated: true, completion: nil)
     }
 }
 
-// MARK: - MKMapViewDelegate
+// MARK: - TrainingType Enum
+private enum TrainingType: Int {
+    case велосипед = 0
+    case бег = 1
 
-extension TrainingViewController: MKMapViewDelegate {
-    func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-        
-        if let polyline = overlay as? MKPolyline {
-            let renderer = MKPolylineRenderer(polyline: polyline)
-            renderer.strokeColor = (selectedTrainingType == "Велосипед") ? .systemBlue : .systemRed
-            renderer.lineWidth = 4.0
-            return renderer
+    var description: String {
+        switch self {
+        case .велосипед: return "Велосипед"
+        case .бег: return "Бег"
         }
-        
-        return MKOverlayRenderer(overlay: overlay)
     }
 }
