@@ -27,6 +27,8 @@
 		769610502D2949F5001C8FE7 /* FEFU.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FEFU.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		769610662D2949F6001C8FE7 /* FEFUTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FEFUTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		769610702D2949F6001C8FE7 /* FEFUUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FEFUUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		76C7DD9F2D3A779A00AE44F9 /* Charts.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Charts.framework; path = System/Library/Frameworks/Charts.framework; sourceTree = SDKROOT; };
+		76C7DDA62D3A8D8700AE44F9 /* Charts.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Charts.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -91,6 +93,7 @@
 				769610522D2949F5001C8FE7 /* FEFU */,
 				769610692D2949F6001C8FE7 /* FEFUTests */,
 				769610732D2949F6001C8FE7 /* FEFUUITests */,
+				76C7DC652D3A763E00AE44F9 /* Frameworks */,
 				769610512D2949F5001C8FE7 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -101,6 +104,21 @@
 				769610502D2949F5001C8FE7 /* FEFU.app */,
 				769610662D2949F6001C8FE7 /* FEFUTests.xctest */,
 				769610702D2949F6001C8FE7 /* FEFUUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		76C7DC652D3A763E00AE44F9 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				76C7DD9F2D3A779A00AE44F9 /* Charts.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		76C7DDA72D3A8D8700AE44F9 /* Products */ = {
+			isa = PBXGroup;
+			children = (
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -208,9 +226,17 @@
 			);
 			mainGroup = 769610472D2949F5001C8FE7;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 769610512D2949F5001C8FE7 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 76C7DDA72D3A8D8700AE44F9 /* Products */;
+					ProjectRef = 76C7DDA62D3A8D8700AE44F9 /* Charts.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				7696104F2D2949F5001C8FE7 /* FEFU */,

@@ -1,3 +1,5 @@
+// TrainingViewController.swift
+
 import UIKit
 import MapKit
 import CoreLocation
@@ -34,7 +36,7 @@ class TrainingViewController: UIViewController, MKMapViewDelegate {
     private var routeCoordinates: [CLLocationCoordinate2D] = []
     private var polyline: MKPolyline?
     
-    private var selectedTrainingType: TrainingType = .велосипед // По умолчанию
+    private var selectedTrainingType: String = "Велосипед" // По умолчанию
     private var pausedTime: TimeInterval = 0
     
     override func viewDidLoad() {
@@ -51,7 +53,6 @@ class TrainingViewController: UIViewController, MKMapViewDelegate {
     
     // MARK: - Setup Methods
     private func setupUI() {
-        // Настройка выбора типа тренировки
         setupTrainingTypeButtons()
         
         // Начальное состояние UI
@@ -59,7 +60,7 @@ class TrainingViewController: UIViewController, MKMapViewDelegate {
         pauseButton.isHidden = true
         finishButton.isHidden = true
         
-        typeLabel.text = selectedTrainingType.description
+        typeLabel.text = selectedTrainingType
         distanceLabel.text = "0.0 км"
         timeLabel.text = "00:00:00"
         
@@ -67,7 +68,6 @@ class TrainingViewController: UIViewController, MKMapViewDelegate {
         pauseButton.layer.cornerRadius = pauseButton.frame.height / 2
         finishButton.layer.cornerRadius = finishButton.frame.height / 2
         
-        // Настройка начального цвета паузы
         pauseButton.backgroundColor = .systemGray5
         pauseButton.setImage(UIImage(systemName: "pause.circle"), for: .normal)
     }
@@ -76,25 +76,12 @@ class TrainingViewController: UIViewController, MKMapViewDelegate {
         for subview in trainingTypeSelectionView.subviews {
             if let button = subview as? UIButton {
                 button.layer.borderWidth = 2
-                button.layer.cornerRadius = 10
                 button.layer.borderColor = UIColor.clear.cgColor
+                button.layer.cornerRadius = 10
+                button.imageView?.contentMode = .scaleAspectFit
+                button.imageEdgeInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+                button.titleEdgeInsets = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 0)
                 button.addTarget(self, action: #selector(trainingTypeButtonTapped(_:)), for: .touchUpInside)
-            }
-        }
-        highlightSelectedButton() // Выделяем текущий выбранный тип
-    }
-    
-    @objc private func trainingTypeButtonTapped(_ sender: UIButton) {
-        guard let type = TrainingType(rawValue: sender.tag) else { return }
-        selectedTrainingType = type
-        typeLabel.text = selectedTrainingType.description
-        highlightSelectedButton() // Обновляем выделение
-    }
-    
-    private func highlightSelectedButton() {
-        for subview in trainingTypeSelectionView.subviews {
-            if let button = subview as? UIButton {
-                button.layer.borderColor = (button.tag == selectedTrainingType.rawValue) ? UIColor.systemGreen.cgColor : UIColor.clear.cgColor
             }
         }
     }
@@ -102,7 +89,7 @@ class TrainingViewController: UIViewController, MKMapViewDelegate {
     private func setupLocationManager() {
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
-        locationManager.distanceFilter = 10 // Обновление каждые 10 метров
+        locationManager.distanceFilter = 10
         locationManager.requestWhenInUseAuthorization()
     }
     
@@ -141,6 +128,28 @@ class TrainingViewController: UIViewController, MKMapViewDelegate {
         finishTraining()
     }
     
+    @objc private func trainingTypeButtonTapped(_ sender: UIButton) {
+        selectedTrainingType = (sender.tag == 0) ? "Велосипед" : "Бег"
+        typeLabel.text = selectedTrainingType
+        
+        for subview in trainingTypeSelectionView.subviews {
+            if let button = subview as? UIButton {
+                button.layer.borderColor = (button == sender) ? UIColor.systemBlue.cgColor : UIColor.clear.cgColor
+                
+                // Анимация парения
+                if button == sender {
+                    UIView.animate(withDuration: 0.2, animations: {
+                        button.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
+                    })
+                } else {
+                    UIView.animate(withDuration: 0.2, animations: {
+                        button.transform = .identity
+                    })
+                }
+            }
+        }
+    }
+    
     // MARK: - Tracking Methods
     
     private func startTracking() {
@@ -149,7 +158,6 @@ class TrainingViewController: UIViewController, MKMapViewDelegate {
         startTime = Date()
         locationManager.startUpdatingLocation()
         
-        // Настройка UI
         trainingInfoView.isHidden = false
         pauseButton.isHidden = false
         finishButton.isHidden = false
@@ -160,13 +168,14 @@ class TrainingViewController: UIViewController, MKMapViewDelegate {
             self.trainingTypeView.isHidden = true
         }
         
-        // Сброс данных
+        if let polyline = polyline {
+            mapView.removeOverlay(polyline)
+        }
         routeCoordinates.removeAll()
         distance = 0.0
         distanceLabel.text = "0.0 км"
         timeLabel.text = "00:00:00"
         
-        // Запуск таймера
         timer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(updateElapsedTime), userInfo: nil, repeats: true)
     }
     
@@ -197,14 +206,25 @@ class TrainingViewController: UIViewController, MKMapViewDelegate {
         let activity = Activity(
             distance: String(format: "%.1f км", distance),
             time: formatTime(timeInterval: elapsedTime),
-            type: selectedTrainingType.description,
+            type: selectedTrainingType,
             timestamp: formattedDate(Date()),
-            iconName: (selectedTrainingType == .велосипед) ? "bicycle.circle.fill" : "figure.walk.circle",
+            iconName: (selectedTrainingType == "Велосипед") ? "bicycle.circle.fill" : "figure.walk.circle",
             date: Date()
         )
         
         delegate?.didFinishTraining(activity: activity)
         navigationController?.popViewController(animated: true)
+        
+        selectedTrainingType = "Велосипед"
+        typeLabel.text = selectedTrainingType
+        trainingTypeSelectionView.isHidden = false
+        trainingTypeSelectionView.alpha = 1.0
+        
+        for subview in trainingTypeSelectionView.subviews {
+            if let button = subview as? UIButton {
+                button.layer.borderColor = (button.title(for: .normal) == selectedTrainingType) ? UIColor.systemBlue.cgColor : UIColor.clear.cgColor
+            }
+        }
     }
     
     @objc private func updateElapsedTime() {
@@ -233,8 +253,29 @@ class TrainingViewController: UIViewController, MKMapViewDelegate {
 // MARK: - CLLocationManagerDelegate
 
 extension TrainingViewController: CLLocationManagerDelegate {
+    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        switch status {
+        case .authorizedWhenInUse, .authorizedAlways:
+            mapView.showsUserLocation = true
+            locationManager.startUpdatingLocation()
+        case .denied, .restricted:
+            let alert = UIAlertController(title: "Доступ к геолокации запрещен", message: "Пожалуйста, разрешите доступ к геолокации в настройках устройства.", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "ОК", style: .default, handler: nil))
+            present(alert, animated: true, completion: nil)
+        case .notDetermined:
+            locationManager.requestWhenInUseAuthorization()
+        @unknown default:
+            break
+        }
+    }
+    
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard isTracking, !isPaused, let location = locations.last else { return }
+        
+        let region = MKCoordinateRegion(center: location.coordinate, latitudinalMeters: 500, longitudinalMeters: 500)
+        mapView.setRegion(region, animated: true)
+        
+        routeCoordinates.append(location.coordinate)
         
         if let previousLocation = previousLocation {
             let delta = location.distance(from: previousLocation) / 1000.0
@@ -242,18 +283,33 @@ extension TrainingViewController: CLLocationManagerDelegate {
             distanceLabel.text = String(format: "%.1f км", distance)
         }
         previousLocation = location
+        
+        if routeCoordinates.count > 1 {
+            if let polyline = polyline {
+                mapView.removeOverlay(polyline)
+            }
+            polyline = MKPolyline(coordinates: routeCoordinates, count: routeCoordinates.count)
+            mapView.addOverlay(polyline!)
+        }
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        let alert = UIAlertController(title: "Ошибка GPS", message: "Не удалось определить ваше местоположение. Пожалуйста, проверьте настройки устройства.", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "ОК", style: .default, handler: nil))
+        present(alert, animated: true, completion: nil)
     }
 }
 
-// MARK: - TrainingType Enum
-private enum TrainingType: Int {
-    case велосипед = 0
-    case бег = 1
+// MARK: - MKMapViewDelegate
 
-    var description: String {
-        switch self {
-        case .велосипед: return "Велосипед"
-        case .бег: return "Бег"
+extension TrainingViewController{
+    func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+        if let polyline = overlay as? MKPolyline {
+            let renderer = MKPolylineRenderer(polyline: polyline)
+            renderer.strokeColor = (selectedTrainingType == "Велосипед") ? .systemBlue : .systemRed
+            renderer.lineWidth = 4.0
+            return renderer
         }
+        return MKOverlayRenderer(overlay: overlay)
     }
 }

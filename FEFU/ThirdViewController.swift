@@ -9,6 +9,8 @@ class ThirdViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        passwordTextField.isSecureTextEntry = true
+
     }
     
     @IBAction func loginButtonTapped(_ sender: UIButton) {
